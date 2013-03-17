@@ -1,4 +1,7 @@
+public class NFA extends FiniteAutomata {
 
-public class NFA {
+	public NFA() {
+		super();
+	}
 
 }
