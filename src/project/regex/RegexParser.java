@@ -4,7 +4,7 @@ package project.regex;
  * The Recursive Descent Parser for the grammar specified in Project1-Regex.doc
  * 
  * NOTE: doesn't yet work with escaped characters yet because Java automatically
- * inserts a backslash in front of a slash. >:|
+ * inserts a backslash in front of a backslash. >:|
  * 
  * @author nirav
  * 
