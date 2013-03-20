@@ -20,9 +20,12 @@ public class RegexParser {
 
 	public String input;
 
+	public ParseTree tree;
+
 	public RegexParser(String input) {
 		this.input = input;
 		pointer = 0;
+		tree = new ParseTree();
 		getSymbol();
 	}
 
@@ -101,141 +104,232 @@ public class RegexParser {
 		}
 	}
 
-	public void regex() throws SyntaxError {
-		rexp();
+	public ParseTree parse() throws SyntaxError {
+
+		/*
+		 * tree.addNode("<reg-ex>",'\0'); tree.addNode(label, operation)regex();
+		 */
+		tree.setRoot(regex());
+		System.out.println("Parse Complete!");
+		return tree;
 	}
 
-	public void rexp() throws SyntaxError {
-		rexp1();
-		rexpPrime();
+	public ParseTreeNode regex() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<reg-ex>");
+		node.addChild(rexp());
+		return node;
 	}
 
-	public void rexpPrime() throws SyntaxError {
+	public ParseTreeNode rexp() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp>");
+		node.addChild(rexp1());
+		node.addChild(rexpPrime());
+		return node;
+	}
+
+	public ParseTreeNode rexpPrime() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp'>");
 		if (accept('|')) {
-			rexp1();
-			rexpPrime();
+			node.addChild("UNION");
+			node.addChild(rexp1());
+			node.addChild(rexpPrime());
+			return node;
 		} else {
-			return;
+			return node;
 		}
 	}
 
-	public void rexp1() throws SyntaxError {
-		rexp2();
-		rexp1Prime();
+	public ParseTreeNode rexp1() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp1>");
+		node.addChild(rexp2());
+		node.addChild(rexp1Prime());
+		return node;
 	}
 
-	public void rexp1Prime() throws SyntaxError {
-
-		if (rexp2()) {
-			rexp1Prime();
+	public ParseTreeNode rexp1Prime() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp1'>");
+		if (symbol == '(') {
+			/*
+			 * accept(symbol); node.addChild(String.valueOf(symbol));
+			 * node.addChild(rexp()); accept(')'); node.addChild(")");
+			 * node.addChild(rexp2Tail());
+			 */
+			node.addChild(rexp2());
+			node.addChild(rexp1Prime());
+			return node;
+		} else if (isReChar()) {
+			/*
+			 * accept(symbol); node.addChild(String.valueOf(symbol));
+			 * node.addChild(rexp2Tail());
+			 */
+			node.addChild(rexp2());
+			node.addChild(rexp1Prime());
+			return node;
+		} else if (symbol == '.' || symbol == '[' || isDefinedClass()) {
+			// node.addChild(rexp3());
+			node.addChild(rexp2());
+			node.addChild(rexp1Prime());
+			return node;
 		} else {
-			return;
+			return node;
 		}
+		/*
+		 * if (rexp2()) { rexp1Prime(); } else { return; }
+		 */
 	}
 
-	public boolean rexp2() throws SyntaxError {
+	public ParseTreeNode rexp2() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp2>");
 		if (accept('(')) {
-			rexp();
-			accept(')');
-			rexp2Tail();
-			return true;
+			node.addChild(String.valueOf('('));
+			node.addChild(rexp());
+			if (accept(')')) {
+				node.addChild(")");
+			}
+			node.addChild(rexp2Tail());
+			return node;
 		} else if (isReChar()) {
 			// accept(symbol);
+			node.addChild(String.valueOf(symbol));
 			accept(symbol);
-			rexp2Tail();
-			return true;
-		} else if (rexp3()) {
-			return true;
+			node.addChild(rexp2Tail());
+			return node;
+		} else if (symbol == '.' || symbol == '[' || isDefinedClass()) {
+			node.addChild(rexp3());
+			return node;
 		} else {
-			// throw new SyntaxError("Invalid rexp3");
-			return false;
+			throw new SyntaxError("Invalid rexp3");
 		}
 	}
 
-	public void rexp2Tail() throws SyntaxError {
+	public ParseTreeNode rexp2Tail() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp2-tail>");
 		if (accept('*')) {
-			;
+			node.addChild("*");
+			return node;
 		} else if (accept('+')) {
-			;
+			node.addChild("+");
+			return node;
 		} else {
-			return;
+			return node;
 		}
 	}
 
-	public boolean rexp3() throws SyntaxError {
-		if (charClass()) {
-			return true;
+	public ParseTreeNode rexp3() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<rexp3>");
+		if (symbol == '.' || symbol == '[' || isDefinedClass()) {
+			node.addChild(charClass());
+			return node;
 		}
-		return false;
+		return node;
 	}
 
-	public boolean charClass() throws SyntaxError {
+	public ParseTreeNode charClass() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<char-class>");
 		if (accept('.')) {
-			return true;
+			node.addChild(".");
+			return node;
 		} else if (accept('[')) {
-			charClass1();
-			return true;
+			node.addChild("[");
+			node.addChild(charClass1());
+			return node;
 		} else if (isDefinedClass()) {
 			accept(symbol);
-			return true;
+			node.addChild(String.valueOf(symbol));
+			return node;
 		} else {
-			return false;
+			return node;
 		}
 	}
 
-	public void charClass1() throws SyntaxError {
-		if (!charSetList()) {
-			excludeSet();
+	public ParseTreeNode charClass1() throws SyntaxError {
+
+		ParseTreeNode node = new ParseTreeNode("<char-class1>");
+		if (isClsChar() || symbol == ']') {
+			node.addChild(charSetList());
+			return node;
+		} else {
+			node.addChild(excludeSet());
+			return node;
 		}
+
+		/*
+		 * if (!charSetList()) { excludeSet(); }
+		 */
 	}
 
-	public boolean charSetList() throws SyntaxError {
+	public ParseTreeNode charSetList() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<char-set-list>");
 		if (accept(']')) {
-			return true;
+			node.addChild("]");
+			return node;
 		} else {
-			charSet();
-			charSetList();
+			node.addChild(charSet());
+			node.addChild(charSetList());
+			return node;
 		}
-		return true;
 	}
 
-	public boolean charSet() throws SyntaxError {
+	public ParseTreeNode charSet() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<char-set>");
 		if (isClsChar()) {
+			node.addChild(String.valueOf(symbol));
 			accept(symbol);
-			charSetTail();
-			return true;
+			node.addChild(charSetTail());
+			return node;
+		} else {
+			throw new SyntaxError("Invalid char-set");
 		}
-		return false;
 	}
 
-	public boolean charSetTail() throws SyntaxError {
+	public ParseTreeNode charSetTail() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<char-set-tail>");
 		if (accept('-')) {
+			node.addChild("-");
 			if (isClsChar()) {
+				node.addChild(String.valueOf(symbol));
 				accept(symbol);
-				return true;
 			}
+			return node;
+		} else {
+			return node;
 		}
-		return true;
 	}
 
-	public void excludeSet() throws SyntaxError {
+	public ParseTreeNode excludeSet() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<exclude-set>");
 		if (accept('^')) {
-			charSet();
-			accept(']');
-			accept('I');
-			accept('N');
-			excludeSetTail();
+			node.addChild("^");
+			node.addChild(charSet());
+			if (accept(']')) {
+				node.addChild("[");
+			}
+			if (accept('I')) {
+				node.addChild("I");
+			}
+			if (accept('N')) {
+				node.addChild("N");
+			}
+			node.addChild(excludeSetTail());
+			return node;
 		} else {
 			throw new SyntaxError("Invalid exclude-set");
 		}
 	}
 
-	public void excludeSetTail() throws SyntaxError {
+	public ParseTreeNode excludeSetTail() throws SyntaxError {
+		ParseTreeNode node = new ParseTreeNode("<exclude-set-tail>");
 		if (accept('[')) {
-			charSet();
-			accept(']');
+			node.addChild("[");
+			node.addChild(charSet());
+			if (accept(']')) {
+				node.addChild("]");
+			}
+			return node;
 		} else if (isDefinedClass()) {
+			node.addChild(String.valueOf(symbol));
 			accept(symbol);
+			return node;
 		} else {
 			throw new SyntaxError("Invalid excludeSetTail");
 		}
@@ -254,12 +348,6 @@ public class RegexParser {
 			this.symbol = input.charAt(pointer);
 			pointer++;
 		}
-	}
-
-	public void parse() throws SyntaxError {
-		regex();
-		System.out.println("Parse Complete!");
-		return;
 	}
 
 }
