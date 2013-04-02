@@ -5,15 +5,24 @@ public class State {
 
 	private String name;
 
-	private ArrayList<Transition> transitions;
 
+	public State() {
+		this.name = "default";
+	}
+	
 	public State(String name) {
-		this.transitions = new ArrayList<Transition>();
 		this.name = name;
 	}
 
-	public void addTransition(Transition t) {
-		transitions.add(t);
+
+	//prints out name
+	public void print() {
+		System.out.println(name);
+	}
+	
+	//setter for name
+	public void setName(String nam) {
+		this.name = nam;
 	}
 
 }
